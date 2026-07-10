@@ -296,60 +296,59 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
     String videoUrl = '${HttpString.baseUrl}/video/$bvid';
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (_) => SimpleDialog(
         clipBehavior: Clip.hardEdge,
         contentPadding: const EdgeInsets.symmetric(vertical: 12),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+        children: [
+          ListTile(
+            dense: true,
+            title: const Text(
+              '复制链接',
+              style: TextStyle(fontSize: 14),
+            ),
+            onTap: () {
+              Get.back();
+              Utils.copyText(videoUrl);
+            },
+            trailing: playedTimePos.isNotEmpty
+                ? iconButton(
+                    tooltip: '精确分享',
+                    icon: const Icon(Icons.timer_outlined),
+                    onPressed: () {
+                      Get.back();
+                      Utils.copyText('$videoUrl$playedTimePos');
+                    },
+                  )
+                : null,
+          ),
+          ListTile(
+            dense: true,
+            title: const Text(
+              '其它app打开',
+              style: TextStyle(fontSize: 14),
+            ),
+            onTap: () {
+              Get.back();
+              PageUtils.launchURL(videoUrl);
+            },
+          ),
+          if (PlatformUtils.isMobile)
             ListTile(
               dense: true,
               title: const Text(
-                '复制链接',
+                '分享视频',
                 style: TextStyle(fontSize: 14),
               ),
               onTap: () {
                 Get.back();
-                Utils.copyText(videoUrl);
-              },
-              trailing: playedTimePos.isNotEmpty
-                  ? iconButton(
-                      tooltip: '精确分享',
-                      icon: const Icon(Icons.timer_outlined),
-                      onPressed: () {
-                        Get.back();
-                        Utils.copyText('$videoUrl$playedTimePos');
-                      },
-                    )
-                  : null,
-            ),
-            ListTile(
-              dense: true,
-              title: const Text(
-                '其它app打开',
-                style: TextStyle(fontSize: 14),
-              ),
-              onTap: () {
-                Get.back();
-                PageUtils.launchURL(videoUrl);
+                ShareUtils.shareText(
+                  '${videoDetail.title} '
+                  'UP主: ${videoDetail.owner!.name!}'
+                  ' - $videoUrl',
+                );
               },
             ),
-            if (PlatformUtils.isMobile)
-              ListTile(
-                dense: true,
-                title: const Text(
-                  '分享视频',
-                  style: TextStyle(fontSize: 14),
-                ),
-                onTap: () {
-                  Get.back();
-                  ShareUtils.shareText(
-                    '${videoDetail.title} '
-                    'UP主: ${videoDetail.owner!.name!}'
-                    ' - $videoUrl',
-                  );
-                },
-              ),
+          if (isLogin)
             ListTile(
               dense: true,
               title: const Text(
@@ -372,6 +371,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
                 );
               },
             ),
+          if (isLogin)
             ListTile(
               dense: true,
               title: const Text(
@@ -398,8 +398,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
                 }
               },
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -464,6 +463,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
   Future<bool> onChangeEpisode(
     BaseEpisodeItem episode, {
     bool isStein = false,
+    bool manual = false,
   }) async {
     try {
       final String bvid = episode.bvid ?? this.bvid;
@@ -479,6 +479,10 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
       }
       if (cid == null) {
         return false;
+      }
+
+      if (manual) {
+        videoDetailCtr.plPlayerController.markManualEpisodeChange();
       }
 
       final String? cover = episode.cover;
@@ -591,7 +595,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
 
   /// 播放上一个
   @override
-  bool prevPlay([bool skipPart = false]) {
+  bool prevPlay({bool skipPart = false, bool manual = false}) {
     final List<BaseEpisodeItem> episodes = <BaseEpisodeItem>[];
     bool isPart = false;
 
@@ -628,7 +632,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
     if (prevIndex < 0) {
       if (isPart &&
           (videoDetailCtr.isPlayAll || videoDetail.ugcSeason != null)) {
-        return prevPlay(true);
+        return prevPlay(skipPart: true, manual: manual);
       }
       if (_isShuffleMode(isPart)) {
         return false;
@@ -650,7 +654,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
     }
 
     if (cid != this.cid.value) {
-      onChangeEpisode(episodes[prevIndex]);
+      onChangeEpisode(episodes[prevIndex], manual: manual);
       return true;
     } else {
       return false;
@@ -659,7 +663,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
 
   /// 列表循环或者顺序播放时，自动播放下一个
   @override
-  bool nextPlay([bool skipPart = false]) {
+  bool nextPlay({bool skipPart = false, bool manual = false}) {
     try {
       final List<BaseEpisodeItem> episodes = <BaseEpisodeItem>[];
       bool isPart = false;
@@ -718,7 +722,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
       if (nextIndex >= episodes.length) {
         if (isPart &&
             (videoDetailCtr.isPlayAll || videoDetail.ugcSeason != null)) {
-          return nextPlay(true);
+          return nextPlay(skipPart: true, manual: manual);
         }
 
         if (_isShuffleMode(isPart)) {
@@ -744,7 +748,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
       }
 
       if (cid != this.cid.value) {
-        onChangeEpisode(episodes[nextIndex]);
+        onChangeEpisode(episodes[nextIndex], manual: manual);
         return true;
       } else {
         return false;
